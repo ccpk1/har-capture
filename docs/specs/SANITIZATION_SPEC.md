@@ -211,12 +211,13 @@ MIME-type based routing:
 
 ### Scanner Pipeline
 
-The engine runs sequential passes over HTML/JavaScript content (numbered 0–16 in the code, with sub-passes like 0b, 2b, 7a/7b, 8b). Each pass uses regex substitution with callback functions that invoke the hasher.
+The engine runs sequential passes over HTML/JavaScript content (numbered 0–16 in the code, with sub-passes like 0b/0c, 2b, 7a/7b, 8b). Each pass uses regex substitution with callback functions that invoke the hasher.
 
 | Pass | Scanner                       | Pattern                                             | Redaction                              |
 | ---- | ----------------------------- | --------------------------------------------------- | -------------------------------------- |
 | 0    | Custom patterns               | Domain-specific PII regex                           | Per-pattern prefix                     |
 | 0b   | Web storage                   | `localStorage.setItem('KEY', 'VALUE')`              | Auto-redact if key is sensitive        |
+| 0c   | Labeled sibling values        | Domain-configured label regex + sibling value span  | Per-pattern prefix                     |
 | 1    | MAC addresses                 | `([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}`             | `hasher.hash_mac()`                    |
 | 2    | Serial numbers (inline)       | `\bSN\b\|S/N\|Serial Number` + value                | `hasher.hash_value(val, "SERIAL")`     |
 | 2b   | Serial numbers (table)        | `<td>Label\b</td><td>VALUE</td>`                    | `hasher.hash_value(val, "SERIAL")`     |
@@ -248,6 +249,35 @@ Detects `localStorage.setItem()` and `sessionStorage.setItem()` in inline script
 - **Tier A**: Key matches `is_sensitive_field()` (password, token, secret, api_key, auth_token, csrf_token) → auto-redact value
 - **Tier B**: Value contains IPs/MACs → handled by subsequent passes
 - **Tier C**: Heuristic analysis if enabled (`FLAG` or `REDACT` mode)
+
+### Labeled sibling value scanner (Pass 0c)
+
+Pass 0c handles HTML rows where the sensitive label and value are split across
+sibling elements, for example:
+
+```html
+<span class="readonlyLabel">Default Password:</span>
+<span class="value">Password999here</span>
+```
+
+The scanner is data-driven. `sanitize_html()` loads
+`pii.html_label_value_patterns` from the active pattern set and applies each
+definition to the fixed sibling-label/value structure.
+
+Current supported structure:
+
+- `readonly_span_pair`: one label element and one adjacent value element,
+  defaulting to CSS classes `readonlyLabel` and `value`
+
+Each pattern definition supplies:
+
+- `label_regex`: the label text to match
+- `replacement_prefix`: the hash prefix to apply (`PASS`, `SERIAL`, `WIFI`, ...)
+- `category`: collector category to increment (`password`, `serial_number`, `wifi`, ...)
+- optional `flags`, `label_class`, and `value_class`
+
+This keeps the scanner engine generic while moving device-family label knowledge
+into pattern data.
 
 ### Pipe-Delimited Scanner (Passes 14–15)
 

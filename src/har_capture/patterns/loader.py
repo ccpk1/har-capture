@@ -188,6 +188,9 @@ def load_pii_patterns(custom_path: Path | str | dict[str, Any] | None = None) ->
             builtin["patterns"].update(custom["patterns"])
         if "preserved_gateway_ips" in custom and isinstance(custom["preserved_gateway_ips"], list):
             builtin["preserved_gateway_ips"].extend(custom["preserved_gateway_ips"])
+        if "html_label_value_patterns" in custom and isinstance(custom["html_label_value_patterns"], list):
+            builtin.setdefault("html_label_value_patterns", [])
+            builtin["html_label_value_patterns"].extend(custom["html_label_value_patterns"])
         # Apply inclusions declared by the domain/custom file
         if "include_patterns" in custom and isinstance(custom["include_patterns"], list):
             _apply_pattern_inclusions(builtin["patterns"], custom["include_patterns"])
@@ -567,6 +570,9 @@ def merge_pattern_files(paths: list[Path]) -> dict[str, Any]:
         if "include_patterns" in extra and isinstance(extra["include_patterns"], list):
             merged.setdefault("include_patterns", [])
             merged["include_patterns"].extend(extra["include_patterns"])
+        if "html_label_value_patterns" in extra and isinstance(extra["html_label_value_patterns"], list):
+            merged.setdefault("html_label_value_patterns", [])
+            merged["html_label_value_patterns"].extend(extra["html_label_value_patterns"])
     return merged
 
 

@@ -171,6 +171,27 @@ class TestCustomPatternsLoading:
         with pytest.raises(PatternLoadError, match="not found"):
             load_pii_patterns("/nonexistent/path/patterns.json")
 
+    def test_custom_html_label_value_patterns_merge(self, tmp_path: Path) -> None:
+        """Custom HTML label/value pattern definitions are merged with builtins."""
+        custom_file = tmp_path / "custom_pii.json"
+        custom_file.write_text(
+            json.dumps(
+                {
+                    "html_label_value_patterns": [
+                        {
+                            "label_regex": "Device\\s+Password",
+                            "replacement_prefix": "PASS",
+                            "category": "password",
+                        }
+                    ]
+                }
+            )
+        )
+
+        result = load_pii_patterns(custom_file)
+        patterns = result.get("html_label_value_patterns", [])
+        assert any(p.get("label_regex") == "Device\\s+Password" for p in patterns)
+
 
 class TestCompilePattern:
     """Tests for compile_pattern function."""
@@ -391,6 +412,43 @@ class TestIncludePatterns:
 
         merged = merge_pattern_files([file_a, file_b])
         assert set(merged["include_patterns"]) == {"mac_address", "email"}
+
+    def test_merge_accumulates_html_label_value_patterns(self, tmp_path: Path) -> None:
+        """merge_pattern_files extends html_label_value_patterns across files."""
+        file_a = tmp_path / "a.json"
+        file_a.write_text(
+            json.dumps(
+                {
+                    "html_label_value_patterns": [
+                        {
+                            "label_regex": "Default\\s+Password",
+                            "replacement_prefix": "PASS",
+                            "category": "password",
+                        }
+                    ]
+                }
+            )
+        )
+        file_b = tmp_path / "b.json"
+        file_b.write_text(
+            json.dumps(
+                {
+                    "html_label_value_patterns": [
+                        {
+                            "label_regex": "WPS\\s+PIN",
+                            "replacement_prefix": "PASS",
+                            "category": "password",
+                        }
+                    ]
+                }
+            )
+        )
+
+        merged = merge_pattern_files([file_a, file_b])
+        assert [p["label_regex"] for p in merged["html_label_value_patterns"]] == [
+            "Default\\s+Password",
+            "WPS\\s+PIN",
+        ]
 
 
 class TestSensitivePatternsHeuristicsMerge:

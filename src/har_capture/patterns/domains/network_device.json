@@ -17,6 +17,41 @@
     "motorola_password"
   ],
 
+  "html_label_value_patterns": [
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "Default\\s+Network\\s+Name\\s*\\(SSID\\)",
+      "replacement_prefix": "WIFI",
+      "category": "wifi",
+      "flags": ["IGNORECASE"],
+      "description": "Readonly network-name labels paired with sibling value spans"
+    },
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "Default\\s+Password",
+      "replacement_prefix": "PASS",
+      "category": "password",
+      "flags": ["IGNORECASE"],
+      "description": "Readonly default-password labels paired with sibling value spans"
+    },
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "WPS\\s+PIN",
+      "replacement_prefix": "PASS",
+      "category": "password",
+      "flags": ["IGNORECASE"],
+      "description": "Readonly WPS PIN labels paired with sibling value spans"
+    },
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "Serial\\s*Number",
+      "replacement_prefix": "SERIAL",
+      "category": "serial_number",
+      "flags": ["IGNORECASE"],
+      "description": "Readonly serial-number labels paired with sibling value spans"
+    }
+  ],
+
   "heuristics": {
     "detectors": [
       {
@@ -26,11 +61,29 @@
         "max_length": 32,
         "requires_letter": true,
         "patterns": [
-          {"regex": "[-_](2\\.?4g?|5g|6g|guest|ext|plus)$", "flags": ["IGNORECASE"], "reason": "ends with band/extension suffix"},
-          {"regex": "^(home|office|guest|wifi|network|net)[-_]", "flags": ["IGNORECASE"], "reason": "starts with common prefix"},
-          {"regex": "[-_](home|office|guest|wifi|network|net)$", "flags": ["IGNORECASE"], "reason": "ends with common suffix"},
-          {"regex": "^[A-Z][a-z]+[-_][A-Z][a-z]+", "reason": "CamelCase with separator (likely name)"},
-          {"regex": "^[A-Za-z]+[-_]\\d+$", "reason": "name followed by number"}
+          {
+            "regex": "[-_](2\\.?4g?|5g|6g|guest|ext|plus)$",
+            "flags": ["IGNORECASE"],
+            "reason": "ends with band/extension suffix"
+          },
+          {
+            "regex": "^(home|office|guest|wifi|network|net)[-_]",
+            "flags": ["IGNORECASE"],
+            "reason": "starts with common prefix"
+          },
+          {
+            "regex": "[-_](home|office|guest|wifi|network|net)$",
+            "flags": ["IGNORECASE"],
+            "reason": "ends with common suffix"
+          },
+          {
+            "regex": "^[A-Z][a-z]+[-_][A-Z][a-z]+",
+            "reason": "CamelCase with separator (likely name)"
+          },
+          {
+            "regex": "^[A-Za-z]+[-_]\\d+$",
+            "reason": "name followed by number"
+          }
         ],
         "camelcase": true
       },
@@ -41,11 +94,30 @@
         "max_length": 64,
         "requires_letter": true,
         "patterns": [
-          {"regex": "'s[-\\s]", "reason": "possessive pattern (someone's device)"},
-          {"regex": "(iphone|ipad|macbook|android|galaxy|pixel|surface|kindle)", "flags": ["IGNORECASE"], "reason": "device brand/type"},
-          {"regex": "(laptop|desktop|phone|tablet|tv|speaker|printer|camera)", "flags": ["IGNORECASE"], "reason": "device category"},
-          {"regex": "(living|bed|bath|kitchen|office|garage|basement)[-_\\s]?room", "flags": ["IGNORECASE"], "reason": "room name"},
-          {"regex": "(netgear|linksys|asus|tp-?link|motorola|arris|ubiquiti|cisco|d-?link|belkin)", "flags": ["IGNORECASE"], "reason": "router/modem brand"}
+          {
+            "regex": "'s[-\\s]",
+            "reason": "possessive pattern (someone's device)"
+          },
+          {
+            "regex": "(iphone|ipad|macbook|android|galaxy|pixel|surface|kindle)",
+            "flags": ["IGNORECASE"],
+            "reason": "device brand/type"
+          },
+          {
+            "regex": "(laptop|desktop|phone|tablet|tv|speaker|printer|camera)",
+            "flags": ["IGNORECASE"],
+            "reason": "device category"
+          },
+          {
+            "regex": "(living|bed|bath|kitchen|office|garage|basement)[-_\\s]?room",
+            "flags": ["IGNORECASE"],
+            "reason": "room name"
+          },
+          {
+            "regex": "(netgear|linksys|asus|tp-?link|motorola|arris|ubiquiti|cisco|d-?link|belkin)",
+            "flags": ["IGNORECASE"],
+            "reason": "router/modem brand"
+          }
         ]
       }
     ],

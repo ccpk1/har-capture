@@ -30,6 +30,7 @@ from pathlib import Path
 import pytest
 
 from har_capture.patterns import load_allowlist, load_pii_patterns
+from har_capture.patterns.loader import resolve_patterns_arg
 from har_capture.sanitization.html import (
     check_for_pii,
     sanitize_html,
@@ -87,6 +88,12 @@ JS_SERIAL_VAR_CASES = [
     for c in _FIXTURE["js_serial_variable_cases"]
 ]
 
+READONLY_LABEL_VALUE_CASES = [
+    (c["input_html"], c["removed"], c["preserved"], c["id"]) for c in _FIXTURE["readonly_label_value_cases"]
+]
+
+NETWORK_DEVICE_PATTERNS = str(resolve_patterns_arg("network-device"))
+
 
 # =============================================================================
 # Test Classes
@@ -130,6 +137,25 @@ class TestSanitizeHtml:
         result1 = sanitize_html(html, salt="salt-one")
         result2 = sanitize_html(html, salt="salt-two")
         assert result1 != result2
+
+    @pytest.mark.parametrize(
+        ("html", "removed_values", "preserved_values", "desc"),
+        READONLY_LABEL_VALUE_CASES,
+        ids=[c[3] for c in READONLY_LABEL_VALUE_CASES],
+    )
+    def test_sanitizes_domain_labeled_values(
+        self,
+        html: str,
+        removed_values: list[str],
+        preserved_values: list[str],
+        desc: str,
+    ) -> None:
+        """Test domain-configured labeled HTML values are sanitized."""
+        result = sanitize_html(html, salt=None, custom_patterns=NETWORK_DEVICE_PATTERNS)
+        for value in removed_values:
+            assert value not in result, f"{desc}: original value '{value}' should be removed"
+        for value in preserved_values:
+            assert value in result, f"{desc}: label or safe value '{value}' should be preserved"
 
     def test_auto_salt_produces_format_preserving_hash(self) -> None:
         """Test auto salt produces format-preserving MAC hash."""

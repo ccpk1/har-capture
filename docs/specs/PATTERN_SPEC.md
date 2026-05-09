@@ -46,6 +46,15 @@ Underscore-prefixed keys are skipped during the merge process.
       "description": "What this pattern detects"
     }
   },
+  "html_label_value_patterns": [
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "Default\\s+Password",
+      "replacement_prefix": "PASS",
+      "category": "password",
+      "flags": ["IGNORECASE"]
+    }
+  ],
   "preserved_gateway_ips": ["192.168.1.1", "10.0.0.1", "192.168.0.1"]
 }
 ```
@@ -79,6 +88,21 @@ Underscore-prefixed keys are skipped during the merge process.
 | config_path   | CONFIG              | .cfg file references                                |
 
 **`preserved_gateway_ips`**: Array of IP addresses that should never be redacted. These are common router gateway addresses that appear in every device capture and don't constitute PII (e.g., `192.168.1.1`, `192.168.0.1`, `10.0.0.1`).
+
+**`html_label_value_patterns`**: Optional list of HTML scanner definitions for
+fixed sibling label/value structures. These are executed by `sanitize_html()`
+before the built-in generic PII passes.
+
+| Field                | Type       | Required | Description                                                  |
+| -------------------- | ---------- | -------- | ------------------------------------------------------------ |
+| `structure`          | string     | No       | HTML structure selector. Current value: `readonly_span_pair` |
+| `label_regex`        | string     | Yes      | Regex for the label text                                     |
+| `replacement_prefix` | string     | Yes      | Hash prefix used for the value (`PASS`, `SERIAL`, `WIFI`)    |
+| `category`           | string     | Yes      | Collector category (`password`, `serial_number`, `wifi`)     |
+| `flags`              | string\[\] | No       | Regex flags for the label regex                              |
+| `label_class`        | string     | No       | Label CSS class override (default: `readonlyLabel`)          |
+| `value_class`        | string     | No       | Value CSS class override (default: `value`)                  |
+| `description`        | string     | No       | Human-readable description                                   |
 
 ### sensitive.json — Headers, Fields, Safe Values
 
@@ -211,6 +235,23 @@ A domain file can contain any combination of these sections:
 {
   "_description": "Human-readable domain description",
 
+  "patterns": {
+    "pattern_name": {
+      "regex": "pattern",
+      "replacement_prefix": "PREFIX",
+      "description": "What this detects"
+    }
+  },
+
+  "html_label_value_patterns": [
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "Device\\s+Password",
+      "replacement_prefix": "PASS",
+      "category": "password"
+    }
+  ],
+
   "heuristics": {
     "safe_value_patterns": [
       {"regex": "^pattern$", "flags": ["IGNORECASE"], "_comment": "What this matches"}
@@ -236,15 +277,7 @@ A domain file can contain any combination of these sections:
 
   "include_patterns": ["mac_address", "serial_number", "private_ip", "public_ip", "ipv6", "email"],
 
-  "pii": {
-    "patterns": {
-      "pattern_name": {
-        "regex": "pattern",
-        "replacement_prefix": "PREFIX",
-        "description": "What this detects"
-      }
-    }
-  }
+  "preserved_gateway_ips": ["192.168.1.1"]
 }
 ```
 
@@ -323,6 +356,32 @@ Top-level list of PII pattern names that are relevant to this domain. When prese
   }
 }
 ```
+
+### Section: `html_label_value_patterns`
+
+Top-level list of labeled HTML value scanners for sibling markup structures.
+This is the extension point for domain-specific labels that can be matched with
+100% confidence only when paired with a fixed HTML layout.
+
+Example:
+
+```json
+{
+  "html_label_value_patterns": [
+    {
+      "structure": "readonly_span_pair",
+      "label_regex": "WPS\\s+PIN",
+      "replacement_prefix": "PASS",
+      "category": "password",
+      "flags": ["IGNORECASE"]
+    }
+  ]
+}
+```
+
+`load_pii_patterns()` extends this list when a domain/custom file is supplied.
+`merge_pattern_files()` also concatenates the list when multiple `--patterns`
+files are combined at the CLI layer.
 
 | Field              | Type       | Description                                          |
 | ------------------ | ---------- | ---------------------------------------------------- |

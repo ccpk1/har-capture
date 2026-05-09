@@ -54,6 +54,70 @@ _ALREADY_REDACTED_HASH_RE = re.compile(r"^[A-Z_]+_[a-f0-9]{8}$")
 _PIPE_MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
 
 
+def _regex_flags(flag_names: list[str] | None) -> re.RegexFlag:
+    """Resolve JSON regex flag names into a combined RegexFlag."""
+    flags = re.RegexFlag(0)
+    for flag_name in flag_names or []:
+        flag = getattr(re, flag_name, None)
+        if flag is not None and isinstance(flag, re.RegexFlag):
+            flags |= flag
+    return flags
+
+
+def _sanitize_html_label_value_patterns(
+    html: str,
+    *,
+    pattern_defs: list[dict[str, Any]],
+    hasher: Hasher,
+    collector: RedactionCollector,
+) -> str:
+    """Redact HTML sibling label/value rows configured in pattern data."""
+    for pattern_def in pattern_defs:
+        if not isinstance(pattern_def, dict):
+            continue
+
+        if pattern_def.get("structure", "readonly_span_pair") != "readonly_span_pair":
+            continue
+
+        label_regex = pattern_def.get("label_regex")
+        replacement_prefix = pattern_def.get("replacement_prefix")
+        category = pattern_def.get("category")
+        if not all(isinstance(value, str) for value in (label_regex, replacement_prefix, category)):
+            continue
+
+        label_class = pattern_def.get("label_class", "readonlyLabel")
+        value_class = pattern_def.get("value_class", "value")
+        if not isinstance(label_class, str) or not isinstance(value_class, str):
+            continue
+
+        flags = _regex_flags(pattern_def.get("flags"))
+        regex = re.compile(
+            rf'(<span[^>]*class=["\'][^"\']*{re.escape(label_class)}[^"\']*["\'][^>]*>\s*)'
+            rf"({label_regex})"
+            rf'(\s*:\s*</span>\s*<span[^>]*class=["\'][^"\']*{re.escape(value_class)}[^"\']*["\'][^>]*>\s*)'
+            rf"([^<]+)(?=\s*</span>)",
+            flags=flags,
+        )
+
+        def replace_labeled_value(match: re.Match[str], *, prefix: str, category_name: str) -> str:
+            collector.record_auto_redaction(category_name)
+            return (
+                f"{match.group(1)}{match.group(2)}{match.group(3)}"
+                f"{hasher.hash_generic(match.group(4), prefix)}"
+            )
+
+        html = regex.sub(
+            lambda match, prefix=replacement_prefix, category_name=category: replace_labeled_value(
+                match,
+                prefix=prefix,
+                category_name=category_name,
+            ),
+            html,
+        )
+
+    return html
+
+
 def _sanitize_pipe_value(
     value: str,
     *,
@@ -354,11 +418,7 @@ def _sanitize_html_impl(
         prefix = pattern_def.get("replacement_prefix", "CUSTOM")
 
         # Handle regex flags
-        flags = 0
-        if "flags" in pattern_def:
-            for flag_name in pattern_def["flags"]:
-                if flag_name == "IGNORECASE":
-                    flags |= re.IGNORECASE
+        flags = _regex_flags(pattern_def.get("flags"))
 
         def make_replacer(prefix: str, pname: str) -> Any:
             def replace_custom(match: re.Match[str]) -> str:
@@ -412,6 +472,14 @@ def _sanitize_html_impl(
         replace_setitem,
         html,
         flags=re.IGNORECASE,
+    )
+
+    # 0c. Domain-configured labeled HTML value rows
+    html = _sanitize_html_label_value_patterns(
+        html,
+        pattern_defs=pii.get("html_label_value_patterns", []),
+        hasher=hasher,
+        collector=collector,
     )
 
     # 1. MAC Addresses (various formats: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX)
